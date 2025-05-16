@@ -1215,6 +1215,148 @@ class MI(VisualStim):
         )
 
 
+# standard SI paradigm
+
+
+class SI(VisualStim):
+    """
+    Create SI stimuli.
+
+    The subclass SI inherits from the parent class VisualStim, and duplicate properties are no longer listed.
+
+    author: Hongbin Wang
+
+    Created on: 2025-05-14
+
+    update log:
+        
+
+    Parameters
+    ----------
+        win:
+            The window object.
+        colorspace: str
+            The color space, default to rgb.
+        allowGUI: bool
+            Defaults to True, which allows frame-by-frame drawing and key-exit.
+    
+    Attributes
+    ----------
+
+    Tip
+    ----
+
+    """
+
+    def __init__(self, win, colorSpace="rgb", allowGUI=True):
+        super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
+
+        self.corpus = os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "corpus" + os.sep + "SI_4basic_directions.txt",
+        )
+
+    def load_corpus(self):
+        with open(self.corpus, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        self.words = [line.strip() for line in lines if line.strip()]
+        return self.words
+
+    def config_color(
+        self,
+        refresh_rate=60,
+        text_pos=(0.0, 0.0),
+        normal_color=(1, 1, 1),
+        image_color=(-1, 1, -1),
+        symbol_height=200
+    ):
+        """Config color of stimuli.
+
+        Parameters
+        ----------
+            refresh_rate: int
+                Refresh rate of screen.
+            text_pos: ndarray, shape(x, y)
+                The position of the target text.
+            normal_color: ndarray, shape(red, green, blue)
+                The stimulating color during preparation.
+            image_color: ndarray, shape(red, green, blue)
+                The stimulating color during imaging.
+            symbol_height: float
+                The height of the target text.
+        """
+
+        if refresh_rate == 0:
+            refresh_rate = np.floor(
+                self.win.getActualFrameRate(nIdentical=20, nWarmUpFrames=20)
+            )
+        self.refresh_rate = refresh_rate
+
+        if symbol_height == 0:
+            symbol_height = int(self.win_size[1] / 6)
+
+        self.fix_stimulus = visual.TextStim(
+            self.win,
+            text="+",
+            font="Times New Roman",
+            pos=text_pos,
+            color=normal_color,
+            units="pix",
+            height=symbol_height,
+            bold=True,
+        )
+
+        self.normal_stimulus = visual.TextStim(
+            self.win,
+            text="Target",
+            font="Times New Roman",
+            pos=text_pos,
+            color=normal_color,
+            units="pix",
+            height=symbol_height,
+            bold=True,
+        )
+
+        self.image_stimulus = visual.TextStim(
+            self.win,
+            text="Target",
+            font="Times New Roman",
+            pos=text_pos,
+            color=image_color,
+            units="pix",
+            height=symbol_height,
+            bold=True,
+        )
+
+    def config_response(self, 
+                        text_pos=(0.0, 0.0),
+                        response_color=[[-0.5, 0.9, 0.5]],
+                        symbol_height=200
+    ):
+        """Config color of stimuli.
+
+        Parameters
+        ----------
+            text_pos: ndarray, shape(x, y)
+                The position of the response text.
+            response_color: ndarray, shape(red, green, blue)
+                The stimulating color during response.
+            symbol_height: float
+                The height of the response text.
+        """
+
+        self.response_text_stimuli = visual.TextStim(
+            self.win,
+            text="Target",
+            font="Times New Roman",
+            pos=text_pos,
+            color=response_color,
+            units="pix",
+            height=symbol_height,
+            bold=True
+        )
+
+
 # standard AVEP paradigm
 
 
@@ -2457,10 +2599,12 @@ def paradigm(
 
         2023-12-09 by Lixia Lin <1582063370@qq.com> Add code annotation
 
+        2025-05-16 by Hongbin Wang <hbwang22@gmail.com> Add SI paradigm
+
     Parameters
     ----------
         VSObject:
-            Examples of the three paradigms.
+            Examples of the paradigms.
         win:
             window.
         bg_color: ndarray
@@ -2483,7 +2627,7 @@ def paradigm(
         nrep: int
             Num of blocks.
         pdim: str
-            One of the three paradigms can be 'ssvep ', ' p300 ', ' mi ' and ' con-ssvep '.
+            One of the paradigms can be 'ssvep ', ' p300 ', ' mi ' and ' con-ssvep '.
         mi_flag: bool
             Flag of MI paradigm.
         lsl_source_id: str
@@ -2975,6 +3119,83 @@ def paradigm(
                     if normal_stimuli:
                         for _normal_stimuli in normal_stimuli:
                             _normal_stimuli.draw()
+                    iframe += 1
+                    win.flip()
+
+    elif pdim == "si":
+        # config experiment settings
+        target_words = VSObject.load_corpus()
+        conditions = [{"id": id, "name": name} for id, name in enumerate(target_words)]
+        trials = data.TrialHandler(
+            conditions,
+            nrep,
+            name="experiment",
+            method="random")
+        
+        # start routine
+        # episode 1: display fix interface
+        iframe = 0
+        while iframe < int(fps * display_time):
+            VSObject.fix_stimulus.draw()
+            iframe += 1
+            win.flip()
+
+        # episode 2: begin to flash
+        if port:
+            port.setData(0)
+        for trial in trials:
+            # quit demo
+            keys = event.getKeys(["q"])
+            if "q" in keys:
+                break
+
+            # initialise index position
+            id = int(trial["id"])
+            target = trial["name"]
+            VSObject.normal_stimulus.text = target
+            VSObject.image_stimulus.text = target
+
+            # phase I: rest state
+            if rest_time != 0:
+                iframe = 0
+                while iframe < int(fps * rest_time):
+                    VSObject.fix_stimulus.draw()
+                    iframe += 1
+                    win.flip()
+
+            # phase II: preparation
+            iframe = 0
+            while iframe < int(fps * index_time):
+                VSObject.normal_stimulus.draw()
+                iframe += 1
+                win.flip()
+
+            # phase III: target stimulating
+            iframe = 0
+            while iframe < int(fps * image_time):
+                if iframe == 0 and port:
+                    VSObject.win.callOnFlip(port.setData, id + 1)
+                if iframe == port_frame and port:
+                    port.setData(0)
+                VSObject.image_stimulus.draw()
+                iframe += 1
+                win.flip()
+
+            # phase IV: respond
+            if inlet:
+                VSObject.fix_stimulus.draw()
+                win.flip()
+
+                samples, timestamp = inlet.pull_sample()
+                predict_id = int(samples[0]) - 1  # online predict id
+
+                response_target = conditions[predict_id]["name"]
+                VSObject.normal_stimulus.text = response_target
+                VSObject.image_stimulus.text = response_target
+
+                iframe = 0
+                while iframe < int(fps * response_time):
+                    VSObject.image_stimulus.draw()
                     iframe += 1
                     win.flip()
 

@@ -6,6 +6,7 @@ from metabci.brainstim.paradigm import (
     SSVEP,
     P300,
     MI,
+    SI,
     AVEP,
     SSAVEP,
     paradigm,
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     ex = Experiment(
         monitor=mon,
         bg_color_warm=bg_color_warm,  # 范式选择界面背景颜色[-1~1,-1~1,-1~1]
-        screen_id=0,
+        screen_id=1,
         win_size=win_size,  # 范式边框大小(像素表示)，默认[1920,1080]
         is_fullscr=False,  # True全窗口,此时win_size参数默认屏幕分辨率
         record_frames=False,
@@ -80,8 +81,7 @@ if __name__ == "__main__":
     index_time = 1  # 提示时长，转移视线
     rest_time = 0.5  # 提示后的休息时长
     response_time = 1  # 在线反馈
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
-    port_addr = None  #  0xdefc
+    port_addr = None  #  0xdefc "COM8"
     nrep = 2  # block数目
     lsl_source_id = "meta_online_worker"  # None                 # source id
     online = False  # True                                       # 在线实验的标志
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     index_time = 0.5  # 提示时长，转移视线
     response_time = 2  # 在线反馈
     rest_time = 0.5  # 提示后的休息时长
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
+    port_addr = None  #  0xdefc "COM8"                           # 采集主机端口
     nrep = 1  # block数目
     lsl_source_id = "meta_online_worker"  # None                 # source id
     online = False  # True                                       # 在线实验的标志
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     rest_time = 1  # 提示后的休息时长
     image_time = 4  # 想象时长
     response_time = 2  # 在线反馈
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
+    port_addr = None  #  0xdefc "COM8"                           # 采集主机端口
     nrep = 15  # block数目
     lsl_source_id = "meta_online_worker"  # source id
     online = False  # True                                       # 在线实验的标志
@@ -266,6 +266,51 @@ if __name__ == "__main__":
         nrep=nrep,
         image_time=image_time,
         pdim="mi",
+        lsl_source_id=lsl_source_id,
+        online=online,
+    )
+
+    """
+    SI
+    """
+    fps = 60                                           # 屏幕刷新率
+    text_pos = (0.0, 0.0)                              # 目标文本位置
+    normal_color = [[1, 1, 1]]                         # 准备阶段目标文本颜色
+    image_color = 2 * np.array([0, 255, 0]) / 255 - 1  # 想象阶段目标文本颜色
+    symbol_height = 200                                # 目标文本高度
+    basic_SI = SI(win=win)
+    basic_SI.config_color(
+        refresh_rate=fps,
+        text_pos=text_pos,
+        normal_color=normal_color,
+        image_color=image_color,
+        symbol_height=symbol_height,
+    )
+    basic_SI.config_response()
+
+    bg_color = np.array([-1, -1, -1])     # 背景颜色
+    display_time = 1                      # 范式开始1s的warm时长
+    index_time = 2                        # 提示时长，转移视线
+    rest_time = 2                         # 提示后的休息时长
+    image_time = 5                        # 想象时长
+    response_time = 2                     # 在线反馈
+    port_addr = None                      # 0xdefc "COM8" 采集主机端口
+    nrep = 2                              # block数目
+    lsl_source_id = "meta_online_worker"  # source id
+    online = False                        # True | False 在线实验的标志
+    ex.register_paradigm(
+        "basic SI",
+        paradigm,
+        VSObject=basic_SI,
+        bg_color=bg_color,
+        display_time=display_time,
+        index_time=index_time,
+        rest_time=rest_time,
+        response_time=response_time,
+        port_addr=port_addr,
+        nrep=nrep,
+        image_time=image_time,
+        pdim="si",
         lsl_source_id=lsl_source_id,
         online=online,
     )
