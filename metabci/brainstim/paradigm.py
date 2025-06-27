@@ -3181,23 +3181,23 @@ def paradigm(
                 iframe += 1
                 win.flip()
 
-            # phase IV: respond
-            if inlet:
-                VSObject.fix_stimulus.draw()
-                win.flip()
+            # # phase IV: respond
+            # if inlet:
+            #     VSObject.fix_stimulus.draw()
+            #     win.flip()
 
-                samples, timestamp = inlet.pull_sample()
-                predict_id = int(samples[0]) - 1  # online predict id
+            #     samples, timestamp = inlet.pull_sample()
+            #     predict_id = int(samples[0]) - 1  # online predict id
 
-                response_target = conditions[predict_id]["name"]
-                VSObject.normal_stimulus.text = response_target
-                VSObject.image_stimulus.text = response_target
+            #     response_target = conditions[predict_id]["name"]
+            #     VSObject.normal_stimulus.text = response_target
+            #     VSObject.image_stimulus.text = response_target
 
-                iframe = 0
-                while iframe < int(fps * response_time):
-                    VSObject.image_stimulus.draw()
-                    iframe += 1
-                    win.flip()
+            #     iframe = 0
+            #     while iframe < int(fps * response_time):
+            #         VSObject.image_stimulus.draw()
+            #         iframe += 1
+            #         win.flip()
 
     elif pdim == "con-ssvep":
         global online_text_pos, online_symbol_text

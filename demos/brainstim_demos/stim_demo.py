@@ -294,10 +294,12 @@ if __name__ == "__main__":
     rest_time = 2                         # 提示后的休息时长
     image_time = 5                        # 想象时长
     response_time = 2                     # 在线反馈
-    port_addr = None                      # 0xdefc "COM8" 采集主机端口
-    nrep = 2                              # block数目
+    port_addr = "COM5"                    # 0xdefc "COM8" 采集主机端口
+    # port_addr = None
+    nrep = 10                              # block数目
     lsl_source_id = "meta_online_worker"  # source id
     online = False                        # True | False 在线实验的标志
+    device_type = "Neuracle"
     ex.register_paradigm(
         "basic SI",
         paradigm,
@@ -313,6 +315,7 @@ if __name__ == "__main__":
         pdim="si",
         lsl_source_id=lsl_source_id,
         online=online,
+        device_type=device_type
     )
 
     """
