@@ -249,8 +249,8 @@ if __name__ == "__main__":
     rest_time = 1  # 提示后的休息时长
     image_time = 4  # 想象时长
     response_time = 2  # 在线反馈
-    port_addr = None  #  0xdefc "COM8"                           # 采集主机端口
-    nrep = 15  # block数目
+    port_addr = "COM8"  #  0xdefc "COM8"                           # 采集主机端口
+    nrep = 10  # block数目
     lsl_source_id = "meta_online_worker"  # source id
     online = False  # True                                       # 在线实验的标志
     ex.register_paradigm(
@@ -276,29 +276,33 @@ if __name__ == "__main__":
     fps = 60                                           # 屏幕刷新率
     text_pos = (0.0, 0.0)                              # 目标文本位置
     normal_color = [[1, 1, 1]]                         # 准备阶段目标文本颜色
-    image_color = 2 * np.array([0, 255, 0]) / 255 - 1  # 想象阶段目标文本颜色
+    target_color = [[-1, 1, -1]]                       # 想象阶段目标文本颜色
+    respond_color = [[1, -1, -1]]                      # 反馈阶段目标文本颜色
     symbol_height = 200                                # 目标文本高度
     basic_SI = SI(win=win)
     basic_SI.config_color(
         refresh_rate=fps,
         text_pos=text_pos,
         normal_color=normal_color,
-        image_color=image_color,
+        target_color=target_color,
+        respond_color=respond_color,
         symbol_height=symbol_height,
     )
     basic_SI.config_response()
 
     bg_color = np.array([-1, -1, -1])     # 背景颜色
     display_time = 1                      # 范式开始1s的warm时长
+
     index_time = 2                        # 提示时长，转移视线
     rest_time = 2                         # 提示后的休息时长
     image_time = 5                        # 想象时长
     response_time = 2                     # 在线反馈
+    
     port_addr = "COM5"                    # 0xdefc "COM8" 采集主机端口
     # port_addr = None
     nrep = 10                              # block数目
     lsl_source_id = "meta_online_worker"  # source id
-    online = False                        # True | False 在线实验的标志
+    online = True                        # True | False 在线实验的标志
     device_type = "Neuracle"
     ex.register_paradigm(
         "basic SI",

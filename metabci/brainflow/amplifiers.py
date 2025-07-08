@@ -247,6 +247,7 @@ class BaseAmplifier:
             for sample in samples:
                 marker.append(sample)
                 if marker(sample[-1]) and worker.is_alive():
+                    print('GET DATA')
                     worker.put(marker.get_epoch())
 
     def up_worker(self, name):
@@ -802,14 +803,70 @@ class Neuracle(BaseAmplifier):
             data = data.reshape(len(data) // self.num_chans, self.num_chans)
         return data.tolist()
 
+    # def _unpack_data(self, raw):
+    #     len_raw = len(raw)
+    #     print(len_raw)
+    #     event, hex_data = [], []
+    #     # unpack hex_data in row
+    #     hex_data = raw[:len_raw - np.mod(len_raw, 4 * self.num_chans)]
+    #     n_item = int(len(hex_data) / 4 / self.num_chans)
+    #     format_str = '<' + (str(self.num_chans) + 'f') * n_item
+    #     unpack_data = struct.unpack(format_str, hex_data)
+
+    #     return np.asarray(unpack_data), event
+    
     def _unpack_data(self, raw):
-        len_raw = len(raw)
-        event, hex_data = [], []
-        # unpack hex_data in row
-        hex_data = raw[:len_raw - np.mod(len_raw, 4 * self.num_chans)]
-        n_item = int(len(hex_data) / 4 / self.num_chans)
-        format_str = '<' + (str(self.num_chans) + 'f') * n_item
-        unpack_data = struct.unpack(format_str, hex_data)
+        token = '@ABCD'
+        n = len(raw)
+        i = 0
+        parse_data, data_record, event, event_record  = [], [], [], []
+        iData = 0
+        iEvent = 1
+        while i + 12 < n:
+            if token == raw[i:i + 5].decode('ascii'):
+                packetType = raw[i + 5]
+                # print(packetType)
+                bytenum = raw[i + 6:i + 8]
+                packetLength = 256 * bytenum[0] + bytenum[1]
+                # bytenum = unpack('>4I', buffer[i+8:i+12])
+                # packetNumber = 16777216*bytenum[0]+65536*bytenum[1]+256*bytenum[2]+bytenum[3]
+                if i + 12 + packetLength > n:
+                    break
+                if packetType == 1:
+                    data_record.append({})
+                    # bytenum = unpack('>4I', buffer[i+12:i+16])
+                    # data_record[iData]['TimeStamp'] = 16777216*bytenum[0]+65536*bytenum[1]+256*bytenum[2]+bytenum[3]
+                    # data_record[iData]['DataCounter'] = unpack('>I', buffer[i+16])
+                    # data_record[iData]['ADCStatus'] = unpack('>I', buffer[i+17:i+23])[0]
+                    if np.mod(packetLength - 11, 4) != 0:
+                        print('The packetLength may be incorrect!')
+                    else:
+                        pass
+                    data_num = int((packetLength - 11) / 4)
+                    format = '>' + str(data_num) + 'f'
+                    data_record[iData]['ChannelData'] = struct.unpack(format, raw[i + 23:i + 12 + packetLength])
+                    parse_data.extend(data_record[iData]['ChannelData'])
+                    iData += 1
+                elif packetType == 5:
+                    event_record.append({})
+                    # bytenum = unpack('>4I', buffer[i+12:i+16])
+                    # event_record[iEvent]['EventCode'] = 16777216*bytenum[0]+65536*bytenum[1]+256*bytenum[2]+bytenum[3]
+                    # bytenum = unpack('>4I', buffer[i+16:i+20])
+                    # event_record[iEvent]['SendingNode'] = 16777216*bytenum[0]+65536*bytenum[1]+256*bytenum[2]+bytenum[3]
+                    # if packerLength > 20:
+                    #     bytenum = unpack('>4I', buffer[i+20:i+24])
+                    #     event_record[iEvent]['MessageLength'] = 16777216*bytenum[0]+65536*bytenum[1]+256*bytenum[2]+bytenum[3]
+                    #     event_record[iEvent]['Message'] = buffer[i+24:i+24+event[iEvent]['MessageLength']].decode('ascii')
+                    # event.extend(event_record[iEvent]['Message'])
+                    iEvent += 1
+                else:
+                    pass
+                i = i + 12 + packetLength
+            else:
+                i += 1
+        # self.buffer = raw[i:]
+
+        unpack_data = parse_data
 
         return np.asarray(unpack_data), event
 

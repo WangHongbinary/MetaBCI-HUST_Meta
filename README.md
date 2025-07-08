@@ -1,3 +1,30 @@
+# MetaBCI-HUST\_Meta
+
+MetaBCI-HUST\_Meta was forked from MetaBCI for the [World Robot Contest 2025: BCI-Controlled Robot Competition](https://www.worldrobotconference.com/contest/BCIBrainControlRobotCompetition/2025.html). This repository contains all the materials related to the "Speech Imagery-Based Brain-Controlled Intelligent Car" project developed by the HUST\_Meta team based on the MetaBCI platform.
+
+## Development on `brainstim`
+
+This project first implements the speech imagery paradigm stimulation and decoding result feedback. The entry point is located in the `"SI"` section of the `demos/brainstim_demos/stim_demo.py` file, and the core implementation resides in the `elif pdim == "si"` block in `metabci/brainstim/paradigm.py`. To test this functionality, please run `demos/brainstim_demos/stim_demo.py`.
+
+## Development on `brainda`
+
+The project implements seven neural network architectures that can be used for speech decoding BCIs. These are located in `metabci/brainda/algorithms/deep_learning`. The models include `tonal_Net.py, fast.py, eeg_deformer.py, duin_cls.py, eeg_conformer.py, brainmodule.py, cnn_gru.py`. We would like to express our sincere gratitude to [tonal_BCI](https://github.com/yuanningli/tonal_BCI_decoding/tree/publications), [FAST](https://github.com/Jiang-Muyun/FAST), [EEG-Deformer](https://github.com/yi-ding-cs/EEG-Deformer), [Du-IN](https://github.com/liulab-repository/Du-IN), [EEG-Conformer](https://github.com/eeyhsong/EEG-Conformer), [brainmagick](https://github.com/facebookresearch/brainmagick) and other excellent open-source repositories for their invaluable support in making this implementation possible.
+
+## Development on `brainflow`
+
+This project also enables online control of the intelligent car. This part is mainly implemented in the `demos/brainflow_demos/Online_si.py` file. To test it, simply run this script.
+
+**Note:** Testing the online control system via brainflow requires the following:
+
+1. Connect hardware devices including the Neuracle DSI-24 EEG cap, the intelligent car, and the Neuracle trigger box.
+2. Launch DSI-Streamer software (we used version 1.08.44), establish a connection with the EEG cap, activate the TCP/IP socket, and start data recording.
+3. Run `demos/brainflow_demos/Online_si.py`, and wait until the terminal displays a successful connection. At this point, the online module is waiting for triggers to begin data collection and decoding.
+4. Run `demos/brainstim_demos/stim_demo.py` to launch the paradigm stimulation program. In the MetaBCI paradigm selection interface, choose the "SI" paradigm to start stimulation. After each trial, the decoding result and control command status will be shown in the terminal running `Online_si.py`.
+
+# Introduction to the MetaBCI Platform
+
+The following section provides an overview of the MetaBCI platform, which serves as the foundation for the developments and extensions presented in this repository.
+
 # MetaBCI
 
 ## Welcome! 
@@ -22,9 +49,15 @@ And this open access paper can be found here: [MetaBCI](https://www.sciencedirec
 
 ## Content
 
+- [MetaBCI-HUST\_Meta](#metabci-hust_meta)
+  - [Development on `brainstim`](#development-on-brainstim)
+  - [Development on `brainda`](#development-on-brainda)
+  - [Development on `brainflow`](#development-on-brainflow)
+- [Introduction to the MetaBCI Platform](#introduction-to-the-metabci-platform)
 - [MetaBCI](#metabci)
   - [Welcome!](#welcome)
   - [Paper](#paper)
+  - [Content](#content)
   - [What are we doing?](#what-are-we-doing)
     - [The problem](#the-problem)
     - [The solution](#the-solution)
