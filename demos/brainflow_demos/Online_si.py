@@ -12,13 +12,116 @@ import mne
 
 from torch import nn
 from pylsl import StreamInfo, StreamOutlet
-from metabci.brainflow.amplifiers import Marker, Neuracle
+from metabci.brainflow.amplifiers import Marker, Neuracle_DSI, Neuracle
 from metabci.brainflow.workers import ProcessWorker
+from metabci.brainflow.logger import get_logger
 from mne.io import read_raw_fif
 from metabci.brainda.algorithms.deep_learning import EEGNet
 from sklearn.model_selection import KFold
 from torch.utils.data import Dataset, DataLoader
 from scipy.linalg import fractional_matrix_power
+
+
+# basic experiment control
+import serial  
+import numpy as np
+from time import sleep
+
+logger_online = get_logger("si_online")
+
+ser = serial.Serial()
+
+def port_open_recv():  # 对串口的参数进行配置
+    ser.port = 'COM4' 
+    ser.baudrate = 115200
+    ser.bytesize = 8
+    ser.stopbits = 1
+    ser.parity = "N"  # 奇偶校验位
+    ser.open()
+    ser.flushOutput()
+    if ser.isOpen():
+        print("串口打开成功！")
+    else:
+        print("串口打开失败！")
+
+
+class CarMove():
+    def __init__(self):
+        pass
+    
+    def BYTE0(self, x):
+        return x & 0xFF          # 取最低有效字节
+
+    def BYTE1(self, x):
+        return (x >> 8) & 0xFF   # 取次低有效字节
+
+    def BYTE2(self, x):
+        return (x >> 16) & 0xFF  # 取次高有效字节
+
+    def BYTE3(self, x):
+        return (x >> 24) & 0xFF  # 取最高有效字节
+
+    def port_close(self):
+        ser.close()
+        if ser.isOpen():
+            print("串口关闭失败！")
+        else:
+            print("串口关闭成功！")
+
+    def send(self, send_data):
+        if ser.isOpen():
+            try:
+                data_bytes = bytes(send_data) # 将输入的数组转换为字节
+                ser.write(data_bytes)  # 发送字节数据
+                print("发送成功", send_data)
+            except Exception as e:
+                print("发送失败！", str(e))
+        else:
+            print("发送失败！")
+
+    def move_pos(self, x, y, spd):
+        # 定义要发送的数据数组
+        x = np.int32(x)
+        y = np.int32(y)
+        z = np.int32(0)
+        spd = np.int16(spd)
+        sum = np.uint16(0)
+        data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x65, 14, self.BYTE0(x), self.BYTE1(x), self.BYTE2(x), self.BYTE3(x), 
+                        self.BYTE0(y), self.BYTE1(y), self.BYTE2(y), self.BYTE3(y), self.BYTE0(z), self.BYTE1(z), self.BYTE2(z), self.BYTE3(z),
+                        self.BYTE0(spd), self.BYTE1(spd), 0xFD] 
+        for i in range(data_to_send[5]+7):
+            sum += data_to_send[i] 
+        data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x65, 14, self.BYTE0(x), self.BYTE1(x), self.BYTE2(x), self.BYTE3(x), 
+                        self.BYTE0(y), self.BYTE1(y), self.BYTE2(y), self.BYTE3(y), self.BYTE0(z), self.BYTE1(z), self.BYTE2(z), self.BYTE3(z),
+                        self.BYTE0(spd), self.BYTE1(spd), 0xFD, self.BYTE0(sum), self.BYTE1(sum)]
+        self.send(data_to_send)  # 发送数组
+
+    def move_rot(self, z, spd):
+        # 定义要发送的数据数组
+        x = np.int16(0)
+        y = np.int16(0)
+        z = np.int32(z)
+        spd = np.int16(spd)
+        sum = np.uint16(0)
+        data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x66, 0x0A, self.BYTE0(x), self.BYTE1(x), self.BYTE0(y), self.BYTE1(y), 
+                        self.BYTE0(z), self.BYTE1(z), self.BYTE2(z), self.BYTE3(z), self.BYTE0(spd), self.BYTE1(spd), 0xFD]
+        for i in range(data_to_send[5]+7):
+            sum += data_to_send[i]
+        data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x66, 0x0A, self.BYTE0(x), self.BYTE1(x), self.BYTE0(y), self.BYTE1(y), 
+                        self.BYTE0(z), self.BYTE1(z), self.BYTE2(z), self.BYTE3(z), self.BYTE0(spd), self.BYTE1(spd), 0xFD, self.BYTE0(sum), self.BYTE1(sum)]
+        self.send(data_to_send)  # 发送数组
+
+    def move_yawoffset(self, offset):
+        offset = np.int32(offset)
+        sum = np.uint16(0)
+        data_to_send = [0xDF, 0x01, 0x97, 0x09, 0x6F, 0x06, self.BYTE0(offset), self.BYTE1(offset), self.BYTE2(offset), self.BYTE3(offset),
+                        self.BYTE0(1), self.BYTE0(1), 0xFD]
+        for i in range(data_to_send[5]+7):
+            sum += data_to_send[i]
+        data_to_send = [0xDF, 0x01, 0x97, 0x09, 0x6F, 0x06, self.BYTE0(offset), self.BYTE1(offset), self.BYTE2(offset), self.BYTE3(offset),
+                        self.BYTE0(1), self.BYTE0(1), 0xFD, self.BYTE0(sum), self.BYTE1(sum)]
+        self.send(data_to_send)  # 发送数组
+
 
 class EEGDataset(Dataset):
     def __init__(self, X, y):
@@ -105,10 +208,8 @@ def train_model(tr_X, va_X, tr_y, va_y, model_path, max_epoch, device):
 
     tr_loader = DataLoader(tr_set, batch_size = 32, shuffle = True, drop_last = False)
     va_loader = DataLoader(va_set, batch_size = 40, shuffle = True, drop_last = False)
-
-    # model = EEGNet(n_channels=tr_X.shape[-2], n_samples=tr_X.shape[-1], n_classes=len(np.unique(tr_y)))
+ 
     model = EEGNet(n_channels=tr_X.shape[-2], n_samples=tr_X.shape[-1], n_classes=len(np.unique(tr_y))).to(device)
-    # model = EEGNet(classes_num=len(np.unique(tr_y)), in_channels=tr_X.shape[-2], time_step=tr_X.shape[-1]).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     loss_f = nn.CrossEntropyLoss()
 
@@ -168,15 +269,11 @@ def train_model(tr_X, va_X, tr_y, va_y, model_path, max_epoch, device):
             best_epoch = epoch
             if not os.path.exists(model_path):
                 os.makedirs(model_path)
-            torch.save(model, os.path.join(model_path, 'Net.pkl'))
+            torch.save(model.state_dict(), os.path.join(model_path, 'Net.pth'))
 
         print(f"Epoch {epoch+1}/{max_epoch} | Train Acc: {train_acc:.4f} | Train Loss: {avg_train_loss:.4f} | "
                 f"Val Acc: {valid_acc:.4f} | Val Loss: {avg_valid_loss:.4f}")
     print(f"\nBest validation model from epoch {best_epoch+1}")
-
-    best_model = torch.load(os.path.join(model_path, 'Net.pkl'))
-
-    return best_model
 
 
 # 预测标签
@@ -184,7 +281,6 @@ def train_model(tr_X, va_X, tr_y, va_y, model_path, max_epoch, device):
 
 def model_predict(X, model=None, device=None):
     X = X.to(device)
-    # print('X[0][0]', X[0][0])
 
     with torch.no_grad():
         output = model(X)
@@ -200,7 +296,7 @@ def model_predict(X, model=None, device=None):
 
 
 def offline_validation(X, y, model_path, is_EA, device):
-    max_epoch = 200
+    max_epoch = 10
     print('X.shape:', X.shape)
 
     X_train, y_train = X[0:448], y[0:448]
@@ -215,18 +311,17 @@ def offline_validation(X, y, model_path, is_EA, device):
     X_valid = torch.tensor(X_valid, dtype = torch.float32)
     y_valid = torch.tensor(y_valid, dtype = torch.long)
 
-    # model = train_model(X_train, 
-    #                     X_valid, 
-    #                     y_train, 
-    #                     y_valid, 
-    #                     model_path=model_path, 
-    #                     max_epoch=max_epoch, 
-    #                     device=device)
+    train_model(X_train, 
+                X_valid, 
+                y_train, 
+                y_valid, 
+                model_path=model_path, 
+                max_epoch=max_epoch, 
+                device=device)
     
-    model_save_path = os.path.join(model_path, 'Net.pkl')
-    model = torch.load(model_save_path)
-    
-    model = model.to(device)
+    model = EEGNet(n_channels=X_train.shape[-2], n_samples=X_train.shape[-1], n_classes=len(np.unique(y_train))).to(device)
+    state_dict = torch.load(os.path.join(model_path, 'Net.pth'))
+    model.load_state_dict(state_dict)
     model.eval()
     
     p_labels = model_predict(X_valid, 
@@ -247,6 +342,7 @@ class FeedbackWorker(ProcessWorker):
                  lsl_source_id,
                  offline_train,
                  is_EA,
+                 is_car,
                  timeout,
                  worker_name):
         self.filepath = filepath
@@ -257,8 +353,12 @@ class FeedbackWorker(ProcessWorker):
         self.lsl_source_id = lsl_source_id
         self.offline_train = offline_train
         self.is_EA = is_EA
+        self.is_car = is_car
 
-        self.model_path = 'C:\BCI2025\MetaBCI-HUST_Meta\model_save'
+        if self.is_car:
+            self.car = CarMove()
+
+        self.model_path = 'F:\\Work_Dell&7900\\BCI2025\\MetaBCI-HUST_Meta\\model_save'
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         print('self.device:', self.device)
@@ -281,9 +381,12 @@ class FeedbackWorker(ProcessWorker):
                                      device=self.device)     
             print("Current model accuracy:", acc)
 
-        model_save_path = os.path.join(self.model_path, 'Net.pkl')
-        self.estimator = torch.load(model_save_path).to(self.device)
-        self.estimator.eval()
+        model = EEGNet(n_channels=20, n_samples=2100, n_classes=4).to(self.device)
+        state_dict = torch.load(os.path.join(self.model_path, 'Net.pth'))
+        model.load_state_dict(state_dict)
+        model.eval()
+
+        self.estimator = model
 
         # 构建反馈通路连接刺激界面，反馈结果
         info = StreamInfo(
@@ -339,14 +442,14 @@ class FeedbackWorker(ProcessWorker):
         raw_data = mne.io.RawArray(data, info)
 
         events = mne.find_events(raw_data, stim_channel='Trigger')
-        print('events',events)
+        # print('events',events)
 
         event = events[0]
         stim_labels = event[2]
-        print('stim_labels', stim_labels)
+        # print('stim_labels', stim_labels)
 
         event = np.expand_dims(event, axis=0)
-        print('event', event)
+        # print('event', event)
 
         # print(raw_data.info)
         # print(self.pick_chs)
@@ -372,16 +475,39 @@ class FeedbackWorker(ProcessWorker):
         print('input_data.shape', input_data.shape)
         input_data = torch.tensor(input_data, dtype = torch.float32)
 
-        p_labels = model_predict(input_data, 
-                                 model=self.estimator, 
-                                 device=self.device)
+        p_pred = model_predict(input_data, 
+                               model=self.estimator, 
+                               device=self.device)
 
-        p_labels = int(p_labels)
-        p_labels = p_labels + 1
-        p_labels = [p_labels]
+        p_pred = int(p_pred)
+        p_pred = p_pred + 1
+        p_labels = [p_pred]
         print("online p_labels:", p_labels)
         if self.outlet.have_consumers():
             self.outlet.push_sample(p_labels)
+
+        # move the car
+        if self.is_car and not ser.isOpen():
+            port_open_recv()  # 打开串口
+            if p_pred == 1:
+                self.car.move_pos(0, 6000, 1000)
+            elif p_pred == 2:
+                self.car.move_pos(0, -6000, 1000)
+            elif p_pred == 3:
+                self.car.move_pos(-6000, 0, 1000)
+            elif p_pred == 4:
+                self.car.move_pos(6000, 0, 1000)
+            sleep(3)
+        elif self.is_car:
+            if p_pred == 1:
+                self.car.move_pos(0, 6000, 1000)
+            elif p_pred == 2:
+                self.car.move_pos(0, -6000, 1000)
+            elif p_pred == 3:
+                self.car.move_pos(-6000, 0, 1000)
+            elif p_pred == 4:
+                self.car.move_pos(6000, 0, 1000)
+            sleep(3)
 
     def post(self):
         pass
@@ -393,7 +519,7 @@ if __name__ == '__main__':
     stim_interval_online = [-2.3, 5.3]          # 在线截取数据的时间段
     stim_labels = list(range(1, 5))     # 1:前进 2:后退 3:左转 4:右转
 
-    filepath = "C:\\BCI2025\\Speech_MetaBCI\\Subject01"
+    filepath = "D:\\Speech_MetaBCI\\Subject01\\processed"
     pick_chs = ['EEG P3-Pz', 
                 'EEG C3-Pz', 
                 'EEG F3-Pz', 
@@ -417,8 +543,9 @@ if __name__ == '__main__':
 
     lsl_source_id = 'meta_online_worker'
     feedback_worker_name = 'feedback_worker'
-    offline_train = True    # 是否离线训练模型
+    offline_train = False    # 是否离线训练模型
     is_EA = False
+    is_car = False           # 是否接入小车
 
     worker = FeedbackWorker(filepath=filepath,
                             pick_chs=pick_chs,
@@ -428,11 +555,12 @@ if __name__ == '__main__':
                             lsl_source_id=lsl_source_id,
                             offline_train=offline_train,
                             is_EA=is_EA,
+                            is_car=is_car,
                             timeout=5e-2,
                             worker_name=feedback_worker_name)  # 在线处理
     marker = Marker(interval=stim_interval_online, srate=srate, events=stim_labels)
 
-    na = Neuracle(
+    na = Neuracle_DSI(
         device_address=('127.0.0.1', 8844),
         srate=srate,
         num_chans=25)  # NeuroScan parameter
@@ -440,10 +568,12 @@ if __name__ == '__main__':
     # 与na建立tcp连接
     na.connect_tcp()
     print("Neuracle TCP Connected")
+    logger_online.info("Neuracle TCP Connected")
 
     # na开始采集波形数据
     na.recv()
     print("Neuracle Data Streaming")
+    logger_online.info("Neuracle Data Streaming")
 
     # register worker来实现在线处理
     na.register_worker(feedback_worker_name, worker, marker)

@@ -7,16 +7,31 @@ from torch import Tensor
 from math import fmod
 
 def weights_init(m):
+    """
+    一个更健壮和符合常规的权重初始化函数。
+
+    - 对卷积层 (Conv) 和全连接层 (Linear) 使用 Xavier 均匀分布初始化权重。
+    - 对批量归一化层 (BatchNorm) 的权重初始化为1，偏置初始化为0。
+    """
+    # 获取模块的类名，例如 'Conv2d', 'Linear', 'BatchNorm2d'
     classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
-        torch.nn.init.xavier_normal_(m.weight.data)
+    
+    # 1. 初始化卷积层和全连接层
+    if classname.find('Conv') != -1 or classname.find('Linear') != -1:
+        # 使用 Xavier 均匀分布初始化权重
+        # 这种方法有助于在网络层之间保持信号的方差，防止梯度消失或爆炸
+        torch.nn.init.xavier_uniform_(m.weight)
+        # 如果存在偏置项，则将其初始化为0
+        if m.bias is not None:
+            torch.nn.init.constant_(m.bias, 0)
+            
+    # 2. 初始化批量归一化层
     elif classname.find('BatchNorm2d') != -1:
-        # 💡 提示: BatchNorm2d 的权重通常初始化为1，偏置为0。
-        # torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-        # torch.nn.init.constant_(m.bias.data, 0.0)
-        # 这里保留你的实现：
-        torch.nn.init.normal_(m.weight.data)
-        torch.nn.init.constant_(m.bias.data, 0.0)
+        # BatchNorm 的 'weight' (gamma) 通常初始化为 1
+        # 'bias' (beta) 初始化为 0
+        # 这样在训练开始时，BatchNorm 层不会改变其输入的均值和方差
+        torch.nn.init.constant_(m.weight, 1)
+        torch.nn.init.constant_(m.bias, 0)
           
 #定义空间注意力层（作用不明显，暂时用1*1卷积代替）
 class Spatial_attention(nn.Module):
@@ -100,11 +115,12 @@ class BrainModule(nn.Module):
                  n_subjects=15, 
                  data_dim=208, 
                  subject_dim=16,
-                 out_channels=120):
+                 out_channels=120,
+                 num_classes=4):
         super().__init__()
 
 
-        self.in_channels = data_dim + subject_dim
+        self.in_channels = data_dim #+ subject_dim
         self.out_channels = out_channels
         
         # 定义各层的通道数
@@ -209,21 +225,46 @@ class BrainModule(nn.Module):
         
         self.model = nn.Sequential(self.step1, self.step2, self.step3, self.step4, self.step5, self.step6, self.step7)
 
+        self.classifier_head = nn.Sequential(
+            OrderedDict(
+                [
+                    # 1. 全局平均池化，将 [B, C, H, W] -> [B, C, 1, 1]
+                    # 在这里，它将 [32, 16, 1, 2100] -> [32, 16, 1, 1]
+                    ('avg_pool', nn.AdaptiveAvgPool2d((1, 1))),
+                    
+                    # 2. 展平，将 [B, C, 1, 1] -> [B, C]
+                    # 在这里，它将 [32, 16, 1, 1] -> [32, 16]
+                    ('flatten', nn.Flatten()),
+                    
+                    # 3. 全连接层，进行分类
+                    # 在这里，它将 [32, 16] -> [32, 4]
+                    ('fc', nn.Linear(in_features=self.out_channels, out_features=num_classes))
+                ]
+            )
+        )
         # 4. 在初始化结束时重置参数
         self.apply(weights_init)
 
     def forward(self, data: Tensor, subject_id: Tensor) -> Tensor:
         """简洁的 forward 方法"""
         
-        batch, _, _, length = data.size()
-        subject_vec = self.subject_embedding(subject_id)
-        subject_vec_expanded = subject_vec.view(batch, -1, 1, 1).expand(-1, -1, -1, length)
-        x = torch.cat([data, subject_vec_expanded], dim=1)
+        # batch, _, _, length = data.size()
+        # subject_vec = self.subject_embedding(subject_id)
+        # subject_vec_expanded = subject_vec.view(batch, -1, 1, 1).expand(-1, -1, -1, length)
         
+        # print("subject_vec.shape", subject_vec.shape, "subject_vec_expanded.shape",subject_vec_expanded.shape, "data.shape:", data.shape)
+        # x = torch.cat([data, subject_vec_expanded], dim=1)
+        
+        # print("x.shape",x.shape)
         # --- 模型执行 ---
         # 所有操作都封装在 self.model 中，调用非常简洁
-        out = self.model(x)
-        return out
+        
+        data = data.unsqueeze(dim=2)
+        features = self.model(data) 
+        
+        # --- 将特征送入分类头 ---
+        output = self.classifier_head(features) # 输出维度: [32, 4]
+        return output
 
     def cal_backbone(self, data: Tensor, subject_id: Tensor, **kwargs) -> Tensor:
         """提取主干网络特征的辅助方法"""
@@ -242,11 +283,14 @@ class BrainModule(nn.Module):
 
 if __name__ == '__main__':
 
-    model = BrainModule(n_subjects=2, 
-                data_dim=208, 
+    model = BrainModule(n_subjects=1, 
+                data_dim=20, 
                 subject_dim=16, 
-                out_channels=120)
-    input = torch.randn(2, 208, 1, 360)
-    subject = torch.tensor([0, 1])
+                out_channels=16,
+                num_classes=4)
+    input = torch.randn(32, 20, 2100)
+    subject = torch.tensor([i for i in range(1)])
     out = model(input, subject)
+    print("input shape:", input.shape)
     print('output shape:', out.shape)
+

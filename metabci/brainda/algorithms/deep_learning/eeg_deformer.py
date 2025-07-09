@@ -178,12 +178,13 @@ def count_parameters(model):
 if __name__ == "__main__":
     data = torch.ones((16, 20, 1000))
     num_classes = 4
-    num_chan = 25
-    num_time = 1000
-    emt = EEGDeformer(num_chan=num_chan, num_time=num_time, temporal_kernel=11, num_kernel=64,
-                 num_classes=num_classes, depth=4, heads=16,
-                 mlp_dim=16, dim_head=16, dropout=0.5)
-    print(emt)
-    print(count_parameters(emt))
+    num_chan = 20
+    num_time = 2100
+    model = EEGDeformer(num_chan=num_chan, num_time=num_time, temporal_kernel=11, num_kernel=64,
+                        num_classes=num_classes, depth=4, heads=16,
+                        mlp_dim=16, dim_head=16, dropout=0.5)
 
-    out = emt(data)
+    x = torch.randn(32, 20, 2100)
+    print('Input:', x.shape)
+    out = model(x)
+    print('Output:', out.shape)

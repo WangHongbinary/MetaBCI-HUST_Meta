@@ -2573,92 +2573,6 @@ class GetPlabel_MyTherad:
         self._exit.set()
         self._t_loop.join()
 
-
-# basic experiment control
-
-##########################
-import serial  
-import numpy as np
-from time import sleep
-from .get_byte import BYTE0, BYTE1, BYTE2, BYTE3
-
-ser = serial.Serial()
-
-def port_open_recv():  # 对串口的参数进行配置
-    ser.port = 'COM4' 
-    ser.baudrate = 115200
-    ser.bytesize = 8
-    ser.stopbits = 1
-    ser.parity = "N"  # 奇偶校验位
-    ser.open()
-    ser.flushOutput()
-    if ser.isOpen():
-        print("串口打开成功！")
-    else:
-        print("串口打开失败！")
-
-def port_close():
-    ser.close()
-    if ser.isOpen():
-        print("串口关闭失败！")
-    else:
-        print("串口关闭成功！")
-
-def send(send_data):
-    if ser.isOpen():
-        try:
-            data_bytes = bytes(send_data) # 将输入的数组转换为字节
-            ser.write(data_bytes)  # 发送字节数据
-            print("发送成功", send_data)
-        except Exception as e:
-            print("发送失败！", str(e))
-    else:
-        print("发送失败！")
-
-def move_pos(x, y, spd):
-    # 定义要发送的数据数组
-    x = np.int32(x)
-    y = np.int32(y)
-    z = np.int32(0)
-    spd = np.int16(spd)
-    sum = np.uint16(0)
-    data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x65, 14, BYTE0(x), BYTE1(x), BYTE2(x), BYTE3(x), 
-                    BYTE0(y), BYTE1(y), BYTE2(y), BYTE3(y), BYTE0(z), BYTE1(z), BYTE2(z), BYTE3(z),
-                    BYTE0(spd), BYTE1(spd), 0xFD] 
-    for i in range(data_to_send[5]+7):
-        sum += data_to_send[i] 
-    data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x65, 14, BYTE0(x), BYTE1(x), BYTE2(x), BYTE3(x), 
-                    BYTE0(y), BYTE1(y), BYTE2(y), BYTE3(y), BYTE0(z), BYTE1(z), BYTE2(z), BYTE3(z),
-                    BYTE0(spd), BYTE1(spd), 0xFD, BYTE0(sum), BYTE1(sum)]
-    send(data_to_send)  # 发送数组
-
-def move_rot(z, spd):
-    # 定义要发送的数据数组
-    x = np.int16(0)
-    y = np.int16(0)
-    z = np.int32(z)
-    spd = np.int16(spd)
-    sum = np.uint16(0)
-    data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x66, 0x0A, BYTE0(x), BYTE1(x), BYTE0(y), BYTE1(y), 
-                    BYTE0(z), BYTE1(z), BYTE2(z), BYTE3(z), BYTE0(spd), BYTE1(spd), 0xFD]
-    for i in range(data_to_send[5]+7):
-        sum += data_to_send[i]
-    data_to_send = [0xDF, 0x01, 0x97, 0x02, 0x66, 0x0A, BYTE0(x), BYTE1(x), BYTE0(y), BYTE1(y), 
-                    BYTE0(z), BYTE1(z), BYTE2(z), BYTE3(z), BYTE0(spd), BYTE1(spd), 0xFD, BYTE0(sum), BYTE1(sum)]
-    send(data_to_send)  # 发送数组
-
-def move_yawoffset(offset):
-    offset = np.int32(offset)
-    sum = np.uint16(0)
-    data_to_send = [0xDF, 0x01, 0x97, 0x09, 0x6F, 0x06, BYTE0(offset), BYTE1(offset), BYTE2(offset), BYTE3(offset),
-                    BYTE0(1), BYTE0(1), 0xFD]
-    for i in range(data_to_send[5]+7):
-        sum += data_to_send[i]
-    data_to_send = [0xDF, 0x01, 0x97, 0x09, 0x6F, 0x06, BYTE0(offset), BYTE1(offset), BYTE2(offset), BYTE3(offset),
-                    BYTE0(1), BYTE0(1), 0xFD, BYTE0(sum), BYTE1(sum)]
-    send(data_to_send)  # 发送数组
-##########################
-
 def paradigm(
     VSObject,
     win,
@@ -3217,7 +3131,6 @@ def paradigm(
                     win.flip()
 
     elif pdim == "si": # TODO MARKMARKMARKMARKMARKMARKMARKMARKMARKMARKMARKMARKMARKMARK
-        port_open_recv()
         # config experiment settings
         target_words = VSObject.load_corpus()
         conditions = [{"id": id, "name": name} for id, name in enumerate(target_words)]
@@ -3277,7 +3190,7 @@ def paradigm(
             while iframe < int(fps * image_time):      
 
                 # 打标
-                if iframe <=5 and port and online:
+                if iframe <=5 and port:
                     VSObject.win.callOnFlip(port.setData, id + 1)
 
                 VSObject.target_stimulus.draw()
@@ -3307,18 +3220,6 @@ def paradigm(
 
                 label = predict_id + 1
                 print('label', label)
-
-                # phase V: move the car
-                if label == 1:
-                    move_pos(0, 6000, 1000)
-                elif label == 2:
-                    move_pos(0, -6000, 1000)
-                elif label == 3:
-                    move_pos(-6000, 0, 1000)
-                elif label == 4:
-                    move_pos(6000, 0, 1000)
-                sleep(3)
-                    
 
     elif pdim == "con-ssvep":
         global online_text_pos, online_symbol_text

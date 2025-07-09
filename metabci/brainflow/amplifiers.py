@@ -246,6 +246,7 @@ class BaseAmplifier:
             worker = self._workers[work_name]
             for sample in samples:
                 marker.append(sample)
+                # print(sample[-1])
                 if marker(sample[-1]) and worker.is_alive():
                     print('GET DATA')
                     worker.put(marker.get_epoch())
@@ -803,17 +804,68 @@ class Neuracle(BaseAmplifier):
             data = data.reshape(len(data) // self.num_chans, self.num_chans)
         return data.tolist()
 
-    # def _unpack_data(self, raw):
-    #     len_raw = len(raw)
-    #     print(len_raw)
-    #     event, hex_data = [], []
-    #     # unpack hex_data in row
-    #     hex_data = raw[:len_raw - np.mod(len_raw, 4 * self.num_chans)]
-    #     n_item = int(len(hex_data) / 4 / self.num_chans)
-    #     format_str = '<' + (str(self.num_chans) + 'f') * n_item
-    #     unpack_data = struct.unpack(format_str, hex_data)
+    def _unpack_data(self, raw):
+        len_raw = len(raw)
+        print(len_raw)
+        event, hex_data = [], []
+        # unpack hex_data in row
+        hex_data = raw[:len_raw - np.mod(len_raw, 4 * self.num_chans)]
+        n_item = int(len(hex_data) / 4 / self.num_chans)
+        format_str = '<' + (str(self.num_chans) + 'f') * n_item
+        unpack_data = struct.unpack(format_str, hex_data)
 
-    #     return np.asarray(unpack_data), event
+        return np.asarray(unpack_data), event
+
+    def connect_tcp(self):
+        self.tcp_link.connect(self.device_address)
+
+    def start_trans(self):
+        time.sleep(1e-2)
+        self.start()
+
+    def stop_trans(self):
+        self.stop()
+
+    def close_connection(self):
+        if self.tcp_link:
+            self.tcp_link.close()
+            self.tcp_link = None
+
+
+class Neuracle_DSI(BaseAmplifier):
+    def __init__(self,
+                 device_address: Tuple[str, int] = ('127.0.0.1', 8712),
+                 srate=1000,
+                 num_chans=9):
+        super().__init__()
+        self.device_address = device_address
+        self.srate = srate
+        self.num_chans = num_chans
+        self.tcp_link = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._update_time = 0.04
+        self.pkg_size = int(
+            self._update_time *
+            4 *
+            self.num_chans *
+            self.srate)
+
+    def set_timeout(self, timeout):
+        if self.tcp_link:
+            self.tcp_link.settimeout(timeout)
+
+    def recv(self):
+        # wait for the socket available
+        data = None
+        # rs, _, _ = select.select([self.tcp_link], [], [], 9)
+        try:
+            raw_data = self.tcp_link.recv(self.pkg_size)
+        except Exception:
+            self.tcp_link.close()
+            print("Can not receive data from socket")
+        else:
+            data, evt = self._unpack_data(raw_data)
+            data = data.reshape(len(data) // self.num_chans, self.num_chans)
+        return data.tolist()
     
     def _unpack_data(self, raw):
         token = '@ABCD'

@@ -298,11 +298,15 @@ if __name__ == "__main__":
     image_time = 5                        # 想象时长
     response_time = 2                     # 在线反馈
     
-    port_addr = "COM5"                    # 0xdefc "COM8" 采集主机端口
-    # port_addr = None
-    nrep = 10                              # block数目
+    # 不接硬件测试时需要将该处置为 None
+    port_addr = None                      # None | "COM5" 采集主机端口
+
+    nrep = 1                              # block数目
     lsl_source_id = "meta_online_worker"  # source id
-    online = True                        # True | False 在线实验的标志
+
+    # 不接硬件离线测试时需要将该处置为 False
+    online = False                        # True | False 在线实验的标志
+
     device_type = "Neuracle"
     ex.register_paradigm(
         "basic SI",

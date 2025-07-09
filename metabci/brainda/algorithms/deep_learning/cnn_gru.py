@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from collections import OrderedDict
 from torch import Tensor
-from torchsummary import summary
 
 # 1. 创建一个统一的权重初始化函数
 def weights_init(m: nn.Module):
@@ -23,10 +22,10 @@ def weights_init(m: nn.Module):
             nn.init.constant_(m.bias, val=0.)
 
 # 2. 将所有模块整合进一个类中
-class CNN_GRU_Refactored(nn.Module):
+class CNN_GRU(nn.Module):
     def __init__(self,
                  # Tokenizer 参数
-                 in_channels=10, 
+                 in_channels=20, 
                  tokenizer_out_channels=128,
                  kernel_size=5,
                  stride=3,
@@ -119,13 +118,10 @@ class CNN_GRU_Refactored(nn.Module):
 # --- 使用示例 ---
 if __name__ == '__main__':
     # 创建模型实例
-    model = CNN_GRU_Refactored(n_classes=61).cuda()
-    
-    # 打印模型结构
-    summary(model, input_size=(10, 90))
+    model = CNN_GRU(n_classes=4)
     
     # 创建一个假的输入张量 (batch_size=4, channels=10, length=512)
-    dummy_input = torch.randn(32, 10, 90).cuda()
+    dummy_input = torch.randn(32, 20, 2100)
     
     # 执行前向传播
     output = model(dummy_input)

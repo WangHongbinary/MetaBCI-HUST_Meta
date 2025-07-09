@@ -177,7 +177,7 @@ if __name__ == '__main__':
         'EEG C4-PZ', 
         'EEG P4-PZ', 
         'EEG CZ-PZ', 
-        'EEG CM-PZ', # Pz
+        # 'EEG CM-PZ',
         'EEG A1-PZ', 
         'EEG FP1-PZ', 
         'EEG FP2-PZ', 
@@ -185,15 +185,15 @@ if __name__ == '__main__':
         'EEG T5-PZ', 
         'EEG O1-PZ',
         'EEG O2-PZ', 
-        'EEG X3-PZ', # x
-        'EEG X2-PZ', # x
+        # 'EEG X3-PZ',
+        # 'EEG X2-PZ',
         'EEG F7-PZ', 
         'EEG F8-PZ', 
-        'EEG X1-PZ', # x
+        # 'EEG X1-PZ',
         'EEG A2-PZ', 
         'EEG T6-PZ', 
         'EEG T4-PZ', 
-        'TRIGGER'
+        # 'TRIGGER'
     ]
 
     Example_Zones = {
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     }
     
     n_classes = 4
-    seq_len = 1000
+    seq_len = 2100
     sfreq = 200
     config = PretrainedConfig(
         electrodes=Example_Electrodes,
@@ -225,7 +225,7 @@ if __name__ == '__main__':
         dropout=0.1,
     )
     model = FAST(config)
-    x = torch.randn(10, len(Example_Electrodes), config.seq_len)
+    x = torch.randn(32, 20, config.seq_len)
     print('Input:', x.shape)
-    logits = model(x)
-    print('Output:', logits.shape)
+    out = model(x)
+    print('Output:', out.shape)

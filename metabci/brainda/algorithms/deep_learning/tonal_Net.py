@@ -195,8 +195,8 @@ class tonal_Net2(nn.Module):
         return x
     
 if __name__ == "__main__":
-    net = tonal_Net1(typeNum=2, in_chans=10)
-    input = torch.randn(16, 10, 600)
+    net = tonal_Net1(typeNum=4, in_chans=20)
+    input = torch.randn(32, 20, 2100)
     out = net(input)
     print(out.shape)
 
@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
 
     net2 = tonal_Net2(typeNum=4, 
-                      in_chans=10,
+                      in_chans=20,
                       is_timespat=True,
                       n_filters_time=n_filters, 
                       filter_time_length=filter_time_length,
@@ -228,6 +228,7 @@ if __name__ == "__main__":
                       gruDim=gruDim,
                       gruLayer=gruLayer,
                       drop_out=drop_out)
-    input = torch.randn(16, 10, 600)
+    input = torch.randn(32, 20, 2100)
     out = net2(input)
-    print(out.shape)
+    print('input.shape:', input.shape)
+    print('out.shape:', out.shape)

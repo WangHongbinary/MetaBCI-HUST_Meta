@@ -62,7 +62,7 @@ class SeparableConv2d(nn.Module):
         return self.model(X)
 
 
-@SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
+# @SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
 class EEGNet(nn.Module):
     """
 
