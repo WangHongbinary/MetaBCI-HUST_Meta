@@ -3199,12 +3199,12 @@ def paradigm(
         
             # phase IV: respond
             if inlet:
-                VSObject.normal_stimulus.text = '...'
-                iframe = 0
-                while iframe < int(fps * response_time):
-                    VSObject.normal_stimulus.draw()
-                    iframe += 1
-                    win.flip()
+                # VSObject.normal_stimulus.text = '...'
+                # iframe = 0
+                # while iframe < int(fps * response_time):
+                #     VSObject.normal_stimulus.draw()
+                #     iframe += 1
+                #     win.flip()
 
                 samples, timestamp = inlet.pull_sample()
                 predict_id = int(samples[0]) - 1  # online predict id

@@ -847,7 +847,8 @@ class Neuracle_DSI(BaseAmplifier):
             self._update_time *
             4 *
             self.num_chans *
-            self.srate)
+            self.srate * 
+            5)
 
     def set_timeout(self, timeout):
         if self.tcp_link:
